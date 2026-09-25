@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# Environment & Secrets
+.env
+.env.local
+
+# Build output
+dist/
+build/
+*.egg-info/
+
+# Storage & Cache
+backend/storage/projects/*.json
+!backend/storage/projects/.gitkeep
+.vite/
+.DS_Store
+Thumbs.db
