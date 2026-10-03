@@ -68,6 +68,7 @@ class CreateProjectRequest(BaseModel):
 
 
 @router.get("")
+@router.get("/")
 def list_projects():
     """Returns a list of all projects summary from database."""
     summaries = project_repo.list_all()
@@ -106,6 +107,7 @@ def get_project(project_id: str):
 
 
 @router.post("")
+@router.post("/")
 def create_project(req: CreateProjectRequest):
     """Create a new project with initial version in database."""
     project_data = project_repo.create_project(
