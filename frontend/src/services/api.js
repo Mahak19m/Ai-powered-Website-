@@ -2,7 +2,8 @@
  * API service for communicating with the FastAPI backend and SSE streaming.
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+const PRODUCTION_API_URL = 'https://ai-powered-website-59q4.onrender.com/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? '/api' : PRODUCTION_API_URL);
 
 export const getStoredApiKey = () => localStorage.getItem('gemini_api_key') || '';
 export const setStoredApiKey = (key) => localStorage.setItem('gemini_api_key', key);
