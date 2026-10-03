@@ -2,12 +2,19 @@
 Main FastAPI entry point for AI Website Builder Backend.
 """
 
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+from app.db.session import init_db
+from app.db.repository import project_repo
 from app.api.routes_generate import router as generate_router
 from app.api.routes_projects import router as projects_router
 from app.api.routes_export import router as export_router
+
+# Initialize database schema and migrate any existing projects
+init_db()
+project_repo.migrate_from_json()
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -19,7 +26,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -47,4 +54,5 @@ def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)

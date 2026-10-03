@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from app.core.config import settings
 from app.api.routes_projects import PROJECTS_STORE, get_project_file_path
+from app.db.repository import project_repo
 
 router = APIRouter(prefix="/api/export", tags=["export"])
 
@@ -67,18 +68,22 @@ def export_html(req: ExportHtmlRequest):
 @router.get("/project/{project_id}/zip")
 def export_project_zip(project_id: str, version_id: str | None = None):
     """Bundle the project into a downloadable ZIP archive containing all pages and assets."""
-    if project_id not in PROJECTS_STORE:
-        path = get_project_file_path(project_id)
-        if os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    PROJECTS_STORE[project_id] = json.load(f)
-            except Exception:
-                raise HTTPException(status_code=500, detail="Failed to load project from disk")
+    proj = project_repo.get(project_id)
+    if not proj:
+        if project_id in PROJECTS_STORE:
+            proj = PROJECTS_STORE[project_id]
         else:
-            raise HTTPException(status_code=404, detail="Project not found")
+            path = get_project_file_path(project_id)
+            if os.path.exists(path):
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        proj = json.load(f)
+                        PROJECTS_STORE[project_id] = proj
+                except Exception:
+                    raise HTTPException(status_code=500, detail="Failed to load project from disk")
+            else:
+                raise HTTPException(status_code=404, detail="Project not found")
 
-    proj = PROJECTS_STORE[project_id]
     target_vid = version_id or proj.get("current_version_id")
     version = next((v for v in proj.get("versions", []) if v["id"] == target_vid), None)
 

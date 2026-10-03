@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Key, Cpu, ShieldCheck, ExternalLink } from 'lucide-react';
+import { X, Key, ShieldCheck, ExternalLink, RotateCcw } from 'lucide-react';
 import { getStoredApiKey, setStoredApiKey, getStoredModel, setStoredModel } from '../services/api';
 
 export default function SettingsModal({ isOpen, onClose }) {
@@ -12,8 +12,16 @@ export default function SettingsModal({ isOpen, onClose }) {
       setApiKey(getStoredApiKey());
       setModel(getStoredModel());
       setSavedStatus(false);
+
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          onClose();
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -26,13 +34,24 @@ export default function SettingsModal({ isOpen, onClose }) {
     }, 600);
   };
 
+  const handleClearKey = () => {
+    setApiKey('');
+    setStoredApiKey('');
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settings-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+    >
       <div className="w-full max-w-lg rounded-2xl bg-dark-900 border border-slate-800 p-6 shadow-2xl relative text-slate-200">
         
         {/* Close Button */}
         <button
           onClick={onClose}
+          aria-label="Close settings"
           className="absolute top-5 right-5 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
         >
           <X className="w-5 h-5" />
@@ -44,7 +63,7 @@ export default function SettingsModal({ isOpen, onClose }) {
             <Key className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-white">AI Provider Settings</h2>
+            <h2 id="settings-modal-title" className="text-lg font-bold text-white">AI Provider Settings</h2>
             <p className="text-xs text-slate-400">Configure your Google Gemini API key for live generation.</p>
           </div>
         </div>
@@ -60,16 +79,28 @@ export default function SettingsModal({ isOpen, onClose }) {
         {/* Form Fields */}
         <div className="space-y-4 mb-6">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-              Gemini API Key
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="apiKeyInput" className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Gemini API Key
+              </label>
+              {apiKey && (
+                <button
+                  type="button"
+                  onClick={handleClearKey}
+                  className="text-[11px] text-slate-400 hover:text-rose-400 inline-flex items-center gap-1 transition"
+                >
+                  <RotateCcw className="w-3 h-3" /> Clear Key
+                </button>
+              )}
+            </div>
             <div className="relative">
               <input
+                id="apiKeyInput"
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder="AIzaSy..."
-                className="w-full px-4 py-2.5 rounded-xl bg-dark-950 border border-slate-700 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition font-mono"
+                className="w-full px-4 py-2.5 rounded-xl bg-dark-950 border border-slate-700 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition font-mono"
               />
             </div>
             <div className="mt-1.5 flex justify-between items-center text-[11px] text-slate-500">
@@ -122,7 +153,7 @@ export default function SettingsModal({ isOpen, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 transition"
           >
             Cancel
           </button>

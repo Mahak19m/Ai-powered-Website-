@@ -14,6 +14,7 @@ from app.core.config import settings
 from app.core.llm_service import generate_website_stream, refine_website_stream, clean_extracted_html
 from app.core.refine_engine import apply_smart_refinement, parse_exact_list_instruction, extract_section_html, validate_exact_list_refinement
 from app.api.routes_projects import PROJECTS_STORE, save_project_to_disk, get_project_file_path
+from app.db.repository import project_repo
 
 from app.core.multi_page_engine import detect_multi_page_request, generate_multi_page_project, refine_multi_page_project
 
@@ -42,6 +43,10 @@ async def generate_website(req: GenerateRequest):
     SSE stream for generating a full website from prompt (supports single-page and multi-page projects).
     """
     async def event_generator():
+        if not req.prompt or not req.prompt.strip():
+            yield f"event: error\ndata: {json.dumps({'error': 'Prompt cannot be empty'})}\n\n"
+            return
+
         is_multi, page_descriptors = detect_multi_page_request(req.prompt)
         start_msg = f"Synthesizing {len(page_descriptors)}-page project architecture and styling..." if is_multi else "Synthesizing UI architecture and styling..."
         yield f"event: status\ndata: {json.dumps({'status': 'started', 'message': start_msg})}\n\n"
@@ -88,29 +93,50 @@ async def generate_website(req: GenerateRequest):
                 "version_type": "generation"
             }
 
-            if project_id not in PROJECTS_STORE:
-                path = get_project_file_path(project_id)
-                if os.path.exists(path):
-                    with open(path, "r", encoding="utf-8") as f:
-                        PROJECTS_STORE[project_id] = json.load(f)
-
-            if project_id in PROJECTS_STORE:
-                proj = PROJECTS_STORE[project_id]
-                proj["versions"].append(new_version)
-                proj["current_version_id"] = version_id
-                proj["updated_at"] = now
+            # Persist in database (with automatic disk mirror and cache sync)
+            existing_p = project_repo.get(project_id) or PROJECTS_STORE.get(project_id)
+            if existing_p:
+                v_list = existing_p.get("versions", [])
+                if len(v_list) == 1 and not v_list[0].get("html_code"):
+                    # Blank project created from dashboard: update version 1 with generated site
+                    with project_repo.session_factory() as db:
+                        from app.db.models import VersionModel, ProjectModel
+                        v_model = db.query(VersionModel).filter(VersionModel.id == v_list[0]["id"]).first()
+                        if v_model:
+                            v_model.prompt = req.prompt
+                            v_model.html_code = clean_html
+                            v_model.pages_json = json.dumps(pages, ensure_ascii=False) if pages else None
+                            v_model.is_multi_page = is_multi
+                            db.commit()
+                        p_model = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
+                        if p_model and req.project_name:
+                            p_model.name = req.project_name
+                            db.commit()
+                    version_id = v_list[0]["id"]
+                else:
+                    added_ver = project_repo.add_version(
+                        project_id=project_id,
+                        prompt=req.prompt,
+                        html_code=clean_html,
+                        pages=pages,
+                        is_multi_page=is_multi,
+                        version_type="generation"
+                    )
+                    version_id = added_ver["id"]
             else:
-                proj = {
-                    "id": project_id,
-                    "name": req.project_name or (req.prompt[:30] + "..." if len(req.prompt) > 30 else req.prompt),
-                    "created_at": now,
-                    "updated_at": now,
-                    "current_version_id": version_id,
-                    "versions": [new_version]
-                }
-                PROJECTS_STORE[project_id] = proj
+                proj_data = project_repo.create_project(
+                    name=req.project_name or (req.prompt[:30] + "..." if len(req.prompt) > 30 else req.prompt),
+                    initial_prompt=req.prompt,
+                    initial_html=clean_html,
+                    pages=pages,
+                    is_multi_page=is_multi,
+                    project_id=project_id
+                )
+                version_id = proj_data["current_version_id"]
 
-            save_project_to_disk(proj)
+            proj = project_repo.get(project_id)
+            if proj:
+                PROJECTS_STORE[project_id] = proj
 
             complete_payload = json.dumps({
                 "project_id": project_id,
@@ -143,6 +169,10 @@ async def refine_website(req: RefineRequest):
     SSE stream for iteratively refining existing website HTML (supports single-page and multi-page projects).
     """
     async def event_generator():
+        if not req.instruction or not req.instruction.strip():
+            yield f"event: error\ndata: {json.dumps({'error': 'Refinement instruction cannot be empty'})}\n\n"
+            return
+
         yield f"event: status\ndata: {json.dumps({'status': 'refining', 'message': 'Applying requested modifications...'})}\n\n"
 
         # Check project state to know if it's multi-page
@@ -228,12 +258,20 @@ async def refine_website(req: RefineRequest):
                 "version_type": "refinement"
             }
 
-            if project_id in PROJECTS_STORE:
-                proj = PROJECTS_STORE[project_id]
-                proj["versions"].append(new_version)
-                proj["current_version_id"] = version_id
-                proj["updated_at"] = now
-                save_project_to_disk(proj)
+            # Persist refinement version in database
+            if project_repo.get(project_id) or project_id in PROJECTS_STORE:
+                added_ver = project_repo.add_version(
+                    project_id=project_id,
+                    prompt=req.instruction,
+                    html_code=clean_html,
+                    pages=final_pages,
+                    is_multi_page=is_multi,
+                    version_type="refinement"
+                )
+                version_id = added_ver["id"]
+                proj = project_repo.get(project_id)
+                if proj:
+                    PROJECTS_STORE[project_id] = proj
 
             complete_payload = json.dumps({
                 "project_id": project_id,

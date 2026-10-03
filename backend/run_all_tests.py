@@ -3,6 +3,9 @@ Test Runner to execute all test suites.
 """
 import sys
 import traceback
+import test_database_layer
+import test_phase3_dashboard_api
+import test_phase4_e2e_integration
 import test_multi_page_suite
 import test_exact_refinement_suite
 import test_exact_skills
@@ -10,6 +13,9 @@ import test_user_scenario
 import test_api
 
 modules = [
+    test_database_layer,
+    test_phase3_dashboard_api,
+    test_phase4_e2e_integration,
     test_multi_page_suite,
     test_exact_refinement_suite,
     test_exact_skills,

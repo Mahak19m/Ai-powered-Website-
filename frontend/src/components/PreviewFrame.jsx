@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Monitor, Tablet, Smartphone, RotateCw, ExternalLink, Sparkles, ZoomIn, ZoomOut, Layers, FileText } from 'lucide-react';
+import { Monitor, Tablet, Smartphone, RotateCw, ExternalLink, Sparkles, ZoomIn, ZoomOut, Layers, FileText, Loader2 } from 'lucide-react';
 
 const VIEWPORTS = {
   desktop: { name: 'Desktop', width: '100%', icon: Monitor },
@@ -46,7 +46,7 @@ export default function PreviewFrame({
       const doc = iframe.contentDocument || iframe.contentWindow?.document;
       if (!doc) return;
 
-      // 1. In-page anchor navigation (#about, #skills, #projects, #education, #experience, #contact, etc.)
+      // 1. In-page anchor navigation (#about, #skills, #projects, etc.)
       if (href.startsWith('#')) {
         e.preventDefault();
         e.stopPropagation();
@@ -112,7 +112,6 @@ export default function PreviewFrame({
       }
     };
 
-    // Attach immediately and on iframe load event
     attachListener();
     iframe.addEventListener('load', attachListener);
 
@@ -126,12 +125,19 @@ export default function PreviewFrame({
   }, [pages, onSelectPage, refreshKey, htmlCode]);
 
   return (
-    <div className="flex flex-col h-full bg-dark-950 overflow-hidden">
+    <div className="flex flex-col h-full bg-dark-950 overflow-hidden relative">
+      {/* Streaming Generation Progress Bar */}
+      {isGenerating && (
+        <div className="h-0.5 w-full bg-slate-800 overflow-hidden z-20">
+          <div className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-500 animate-pulse w-full"></div>
+        </div>
+      )}
+
       {/* Viewport Toolbar */}
       <div className="h-12 border-b border-slate-800/80 bg-dark-900/60 px-4 flex items-center justify-between z-10 select-none">
         
         {/* Device Switcher */}
-        <div className="flex items-center bg-dark-950 border border-slate-800 rounded-lg p-0.5">
+        <div className="flex items-center bg-dark-950 border border-slate-800 rounded-lg p-0.5" role="group" aria-label="Viewport device selector">
           {Object.entries(VIEWPORTS).map(([key, item]) => {
             const Icon = item.icon;
             const isActive = viewport === key;
@@ -140,6 +146,7 @@ export default function PreviewFrame({
                 key={key}
                 type="button"
                 onClick={() => setViewport(key)}
+                aria-pressed={isActive}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition ${
                   isActive
                     ? 'bg-indigo-600 text-white font-medium shadow-sm'
@@ -160,6 +167,7 @@ export default function PreviewFrame({
           <div className="hidden md:flex items-center bg-dark-950 border border-slate-800 rounded-lg p-0.5 text-slate-400">
             <button
               onClick={() => setScale((s) => Math.max(0.5, s - 0.1))}
+              aria-label="Zoom out preview"
               className="p-1 hover:text-white transition"
               title="Zoom out"
             >
@@ -170,6 +178,7 @@ export default function PreviewFrame({
             </span>
             <button
               onClick={() => setScale((s) => Math.min(1.2, s + 0.1))}
+              aria-label="Zoom in preview"
               className="p-1 hover:text-white transition"
               title="Zoom in"
             >
@@ -182,6 +191,7 @@ export default function PreviewFrame({
           <button
             type="button"
             onClick={handleRefresh}
+            aria-label="Reload preview"
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
             title="Reload preview"
           >
@@ -192,6 +202,7 @@ export default function PreviewFrame({
             type="button"
             onClick={handleOpenNewWindow}
             disabled={!htmlCode}
+            aria-label="Open preview in new browser tab"
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-40 transition"
             title="Open preview in new tab"
           >
@@ -240,7 +251,7 @@ export default function PreviewFrame({
             </div>
             <h4 className="text-sm font-semibold text-slate-200 mb-1">Live Sandbox Ready</h4>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Send a prompt from the studio panel on the left to start generating your website.
+              Send a prompt from the studio panel on the left to start generating your website in real-time.
             </p>
           </div>
         ) : (

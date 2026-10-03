@@ -1,20 +1,39 @@
 # Dependencies
 node_modules/
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+.pytest_cache/
 
-# Environment & Secrets
+# Environment Variables & Secrets
 .env
-.env.local
+.env.*
+!.env.example
 
-# Build output
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Production Build Outputs
 dist/
 build/
 *.egg-info/
-
-# Storage & Cache
-backend/storage/projects/*.json
-!backend/storage/projects/.gitkeep
+frontend/dist/
 .vite/
+
+# Database & Runtime State
+backend/*.db
+backend/*.sqlite
+backend/*.sqlite3
+backend/webcraft.db
+backend/app/storage/projects/*.json
+!backend/app/storage/projects/.gitkeep
+
+# System & Editor Artifacts
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
+*.log

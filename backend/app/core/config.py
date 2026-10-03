@@ -16,6 +16,7 @@ class Settings(BaseModel):
         "*"
     ]
     PROJECTS_DIR: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "storage", "projects")
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./webcraft.db")
 
 settings = Settings()
 os.makedirs(settings.PROJECTS_DIR, exist_ok=True)

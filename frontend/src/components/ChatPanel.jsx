@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, Wand2, Loader2, Bot, User, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Send, Sparkles, Wand2, Loader2, Bot, User, CheckCircle2, RotateCw } from 'lucide-react';
 
 const SUGGESTED_PROMPTS = [
   {
@@ -28,17 +28,26 @@ export default function ChatPanel({
   hasGeneratedCode
 }) {
   const [inputPrompt, setInputPrompt] = useState('');
+  const [validationError, setValidationError] = useState('');
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, statusMessage]);
+  }, [messages, statusMessage, isGenerating]);
 
   const handleSubmit = (e) => {
     e?.preventDefault();
-    if (!inputPrompt.trim() || isGenerating) return;
-    onSendMessage(inputPrompt.trim());
+    const trimmed = inputPrompt.trim();
+    if (!trimmed) {
+      setValidationError('Please enter a description or instruction.');
+      textareaRef.current?.focus();
+      return;
+    }
+    if (isGenerating) return;
+
+    setValidationError('');
+    onSendMessage(trimmed);
     setInputPrompt('');
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -54,6 +63,13 @@ export default function ChatPanel({
 
   const handleSelectPrompt = (promptText) => {
     setInputPrompt(promptText);
+    setValidationError('');
+    textareaRef.current?.focus();
+  };
+
+  const handleRetryPrompt = (content) => {
+    setInputPrompt(content);
+    setValidationError('');
     textareaRef.current?.focus();
   };
 
@@ -91,8 +107,9 @@ export default function ChatPanel({
               {SUGGESTED_PROMPTS.map((item, idx) => (
                 <button
                   key={idx}
+                  type="button"
                   onClick={() => handleSelectPrompt(item.prompt)}
-                  className="w-full text-left p-2.5 rounded-xl bg-dark-950/70 hover:bg-indigo-950/40 border border-slate-800/80 hover:border-indigo-500/40 transition group flex items-start gap-2.5"
+                  className="w-full text-left p-2.5 rounded-xl bg-dark-950/70 hover:bg-indigo-950/40 border border-slate-800/80 hover:border-indigo-500/40 transition group flex items-start gap-2.5 focus:outline-none focus:border-indigo-500"
                 >
                   <span className="text-indigo-400 text-xs mt-0.5">✦</span>
                   <div>
@@ -126,11 +143,28 @@ export default function ChatPanel({
                   msg.role === 'user'
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : msg.isError
-                    ? 'bg-rose-950/50 border border-rose-800/50 text-rose-200'
+                    ? 'bg-rose-950/60 border border-rose-800/60 text-rose-200'
                     : 'bg-dark-950 border border-slate-800 text-slate-300'
                 }`}
               >
                 <div className="whitespace-pre-wrap">{msg.content}</div>
+
+                {msg.isError && (
+                  <div className="mt-2.5 pt-2 border-t border-rose-800/40 flex items-center justify-between">
+                    <span className="text-[10px] text-rose-300">Action failed</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const prevUser = [...messages].reverse().find((m) => m.role === 'user');
+                        if (prevUser) handleRetryPrompt(prevUser.content);
+                      }}
+                      className="inline-flex items-center gap-1 text-[10px] font-medium text-rose-200 hover:text-white bg-rose-900/60 hover:bg-rose-800 px-2 py-0.5 rounded transition"
+                    >
+                      <RotateCw className="w-2.5 h-2.5" /> Retry
+                    </button>
+                  </div>
+                )}
+
                 {msg.version && (
                   <div className="mt-2 pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] text-indigo-400 font-mono">
                     <span className="flex items-center gap-1">
@@ -173,7 +207,10 @@ export default function ChatPanel({
             ref={textareaRef}
             rows={3}
             value={inputPrompt}
-            onChange={(e) => setInputPrompt(e.target.value)}
+            onChange={(e) => {
+              setInputPrompt(e.target.value);
+              if (validationError) setValidationError('');
+            }}
             onKeyDown={handleKeyDown}
             disabled={isGenerating}
             placeholder={
@@ -184,6 +221,12 @@ export default function ChatPanel({
             className="w-full px-3.5 py-2.5 pb-10 rounded-xl bg-dark-900 border border-slate-700 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition resize-none disabled:opacity-50"
           />
 
+          {validationError && (
+            <div className="absolute top-1 right-3 text-[10px] text-rose-400 font-medium">
+              {validationError}
+            </div>
+          )}
+
           <div className="absolute bottom-2.5 right-2.5 flex items-center gap-2">
             <span className="text-[10px] text-slate-500 hidden sm:inline">
               ↵ Enter to send
@@ -191,6 +234,7 @@ export default function ChatPanel({
             <button
               type="submit"
               disabled={!inputPrompt.trim() || isGenerating}
+              aria-label="Send prompt"
               className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white shadow-sm transition"
             >
               {isGenerating ? (

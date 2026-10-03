@@ -2,7 +2,7 @@
  * API service for communicating with the FastAPI backend and SSE streaming.
  */
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export const getStoredApiKey = () => localStorage.getItem('gemini_api_key') || '';
 export const setStoredApiKey = (key) => localStorage.setItem('gemini_api_key', key);
@@ -188,11 +188,49 @@ export async function streamRefine({
 
 export async function listProjects() {
   const res = await fetch(`${API_BASE}/projects`);
+  if (!res.ok) {
+    throw new Error(`Failed to load projects: ${res.statusText || res.status}`);
+  }
   return await res.json();
 }
 
 export async function getProject(projectId) {
   const res = await fetch(`${API_BASE}/projects/${projectId}`);
+  if (!res.ok) {
+    throw new Error(`Failed to load project: ${res.statusText || res.status}`);
+  }
+  return await res.json();
+}
+
+export async function createProject({ name, initialPrompt = '', initialHtml = '', pages = null, isMultiPage = false }) {
+  const res = await fetch(`${API_BASE}/projects`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name,
+      initial_prompt: initialPrompt || 'Initial project creation',
+      initial_html: initialHtml || '',
+      pages: pages,
+      is_multi_page: isMultiPage
+    })
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to create project: ${res.statusText}`);
+  }
+  return await res.json();
+}
+
+export async function deleteProject(projectId) {
+  const res = await fetch(`${API_BASE}/projects/${projectId}`, {
+    method: 'DELETE'
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to delete project: ${res.statusText}`);
+  }
   return await res.json();
 }
 
@@ -200,6 +238,10 @@ export async function revertToVersion(projectId, versionId) {
   const res = await fetch(`${API_BASE}/projects/${projectId}/revert/${versionId}`, {
     method: 'POST'
   });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to revert version: ${res.statusText}`);
+  }
   return await res.json();
 }
 
